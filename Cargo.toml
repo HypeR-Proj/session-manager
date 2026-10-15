@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: 2026 roolrz
+# SPDX-License-Identifier: Apache-2.0
+
+[package]
+workspace = "../../app"
+name = "hyper-session-manager"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "hyper-session-manager"
+path = "src/main.rs"
+test = false
+bench = false
+
+[dependencies]
+hyper-os.workspace = true
+hyper-rt.workspace = true
+hyper-service.workspace = true
+hyper-component.workspace = true
+hyper-service-ipc.workspace = true
+hyper-journal.workspace = true
+hyper-terminal = { path = "../../lib/terminal" }
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true
