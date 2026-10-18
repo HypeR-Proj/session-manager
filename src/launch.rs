@@ -17,6 +17,7 @@ use hyper_terminal::{PreparedClient, client};
 
 type TerminalLaunch = (
     OwnedHandle<ProcessObject>,
+    hyper_os::task::ProcessRetirement,
     OwnedHandle<CapabilityChannelObject>,
     OwnedHandle<ByteChannelObject>,
     OwnedHandle<ByteChannelObject>,
@@ -111,9 +112,10 @@ pub(super) fn terminal(
             RightsOffer::Exact(Rights::READ.union(Rights::WRITE).union(Rights::WAIT)),
         )
         .map_err(|failure| failure.error())?;
+    let retirement = builder.retain_on_exit(8 * 1024 * 1024, 10_000_000_000)?;
     builder.seal()?;
     let process = builder.start().map_err(|failure| failure.error())?;
-    Ok((process, control.into_handle(), ready, recovery))
+    Ok((process, retirement, control.into_handle(), ready, recovery))
 }
 
 pub(super) fn shell(

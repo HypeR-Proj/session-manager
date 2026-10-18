@@ -67,6 +67,7 @@ fn run(startup: &mut Startup<'_>) -> Result<(), Box<dyn std::error::Error>> {
         )?;
         let began = hyper_os::time::monotonic_now()?.as_nanoseconds();
         let mut recovery_worker = None;
+        let terminal_failed = std::cell::Cell::new(false);
         let services = SessionServices {
             startup,
             root: &root,
@@ -74,6 +75,7 @@ fn run(startup: &mut Startup<'_>) -> Result<(), Box<dyn std::error::Error>> {
             config: &config,
             epoch,
             logs: &logs,
+            terminal_failed: &terminal_failed,
         };
         let result = run_session(
             &services,
@@ -84,6 +86,30 @@ fn run(startup: &mut Startup<'_>) -> Result<(), Box<dyn std::error::Error>> {
             &mut recovery_worker,
             &mut session_start,
         );
+        if let Err(error) = &result {
+            // Report before reset/join: either operation can depend on the
+            // service that just failed. The manager supplies Console fallback.
+            if let Ok(connector) = startup.borrow(hyper_component::CONNECTOR) {
+                let _ = hyper_component::connection::report_failure(
+                    connector,
+                    &format!("session epoch={epoch}: {error}"),
+                );
+            }
+        }
+        if terminal_failed.get() {
+            // Closing terminal-service's endpoints wakes existing app I/O with
+            // PEER_CLOSED. Give applications a bounded opportunity to save and
+            // exit before closing the entire old session task group. In
+            // particular, never wire an old editor to a new shell's byte stream.
+            let deadline = hyper_os::time::deadline_after(std::time::Duration::from_millis(
+                config.failure_grace_ms,
+            ))?
+            .as_raw();
+            match group.as_task_group().wait_terminated(deadline) {
+                Ok(()) | Err(hyper_os::Error::Status(hyper_os::Status::TIMED_OUT)) => {}
+                Err(error) => return Err(error.into()),
+            }
+        }
         let reset = hyper_service::console::reset_raw(controller.as_handle_ref(), epoch);
         stop_groups([&group, &terminal_group])?;
         if let Some(worker) = recovery_worker {
@@ -126,6 +152,7 @@ struct SessionServices<'a, 'startup> {
     environment: &'a hyper_os::fs::Directory,
     config: &'a config::Config,
     logs: &'a OwnedHandle<hyper_os::handle::CapabilityChannelObject>,
+    terminal_failed: &'a std::cell::Cell<bool>,
 }
 
 fn run_session(
@@ -144,9 +171,10 @@ fn run_session(
         config,
         logs,
         epoch,
+        terminal_failed,
     } = services;
     let epoch = *epoch;
-    let (terminal_process, control, ready, recovery) =
+    let (terminal_process, retirement, control, ready, recovery) =
         launch::terminal(startup, environment, config, logs, terminal_group, binding)?;
     let retained = Arc::clone(recovery_start);
     *recovery_worker = Some(
@@ -175,10 +203,29 @@ fn run_session(
     )?
     .index;
     if observation == 0 {
-        return Err("terminal exited during startup".into());
+        return Err(terminal_failure(
+            &terminal_process,
+            &retirement,
+            "terminal-service exited during startup",
+        )
+        .into());
     }
     let mut bytes = [0; 32];
-    let count = ready.as_byte_channel().receive(&mut bytes)?;
+    let count = match ready.as_byte_channel().try_receive(&mut bytes) {
+        Ok(count) => count,
+        Err(hyper_os::Error::Status(hyper_os::Status::PEER_CLOSED)) => {
+            // Exit withdraws active handles before publishing TERMINATED.
+            // Readiness can therefore close first; still collect the child's
+            // termination reason instead of losing it behind a channel error.
+            return Err(terminal_failure(
+                &terminal_process,
+                &retirement,
+                "terminal-service closed readiness during startup",
+            )
+            .into());
+        }
+        Err(error) => return Err(error.into()),
+    };
     if &bytes[..count] != b"terminal-ready\n" {
         return Err("invalid terminal readiness reply".into());
     }
@@ -206,7 +253,12 @@ fn run_session(
             hyper_os::time::deadline_after(std::time::Duration::from_secs(120))?.as_raw(),
         )?;
         if observation.index == 0 {
-            return Err("terminal exited before session release".into());
+            return Err(terminal_failure(
+                &terminal_process,
+                &retirement,
+                "terminal-service exited before session release",
+            )
+            .into());
         }
         let mut bytes = [0; 64];
         let n = start.as_byte_channel().try_receive(&mut bytes)?;
@@ -219,23 +271,79 @@ fn run_session(
     let id = client.id;
     let shell = launch::shell(startup, root, environment, config, group, client)?;
     terminal.bind_child(id, shell.as_process_supervisor().observe()?)?;
-    let observation = wait_many(
-        &[
-            WaitItem::new(
-                terminal_process.as_handle_ref(),
-                ObjectSignals::<ProcessObject>::TERMINATED,
-            ),
-            WaitItem::new(
-                shell.as_handle_ref(),
-                ObjectSignals::<ProcessObject>::TERMINATED,
-            ),
-        ],
-        hyper_os::DEADLINE_INFINITE,
-    )?;
-    if observation.index == 0 {
-        return Err("terminal service exited".into());
+    let waits = [
+        WaitItem::new(
+            terminal_process.as_handle_ref(),
+            ObjectSignals::<ProcessObject>::TERMINATED,
+        ),
+        WaitItem::new(
+            shell.as_handle_ref(),
+            ObjectSignals::<ProcessObject>::TERMINATED,
+        ),
+    ];
+    #[cfg(feature = "test-service-failure")]
+    let mut shell_first = false;
+    let exited = loop {
+        #[cfg(feature = "test-service-failure")]
+        let deadline = {
+            // Only the isolated failure fixture can request this injection.
+            // Keep the linear terminal supervisor in its normal owner.
+            if epoch == 1
+                && let Ok(request) = std::fs::read_to_string("/tmp/terminal-fault-request")
+            {
+                std::fs::remove_file("/tmp/terminal-fault-request")?;
+                terminal_process.as_process_supervisor().request_stop()?;
+                if request == "shell-first" {
+                    // Force the shell-wins observation, leaving its child app
+                    // alive to prove the grace period applies in this order.
+                    shell_first = true;
+                    shell.as_process_supervisor().request_stop()?;
+                }
+            }
+            hyper_os::time::deadline_after(std::time::Duration::from_millis(50))?.as_raw()
+        };
+        #[cfg(not(feature = "test-service-failure"))]
+        let deadline = hyper_os::DEADLINE_INFINITE;
+        #[cfg(feature = "test-service-failure")]
+        let first = usize::from(shell_first);
+        #[cfg(not(feature = "test-service-failure"))]
+        let first = 0;
+        match wait_many(&waits[first..], deadline) {
+            Ok(observation) => break first + observation.index,
+            Err(hyper_os::Error::Status(hyper_os::Status::TIMED_OUT)) => continue,
+            Err(error) => return Err(error.into()),
+        }
+    };
+    // Endpoint closure can make the shell exit while the terminal is still
+    // Stopping. The latched reason precedes closure; TERMINATED need not have
+    // been published yet, so the wait winner alone cannot select cleanup.
+    if exited == 0
+        || terminal_process
+            .as_process_supervisor()
+            .info()?
+            .terminal
+            .is_some()
+    {
+        terminal_failed.set(true);
+        return Err(
+            terminal_failure(&terminal_process, &retirement, "terminal-service exited").into(),
+        );
     }
-    terminal.release_child(id)?;
+    match terminal.release_child(id) {
+        Ok(()) => {}
+        Err(hyper_os::Error::Status(hyper_os::Status::PEER_CLOSED)) => {
+            // Exit can also start after the lifecycle snapshot above. A lost
+            // management endpoint still requires the disconnected-app grace.
+            terminal_failed.set(true);
+            return Err(terminal_failure(
+                &terminal_process,
+                &retirement,
+                "terminal-service closed control while releasing shell",
+            )
+            .into());
+        }
+        Err(error) => return Err(error.into()),
+    }
     use hyper_os::task::ProcessTermination;
     match shell.as_process_supervisor().info()?.terminal {
         Some(
@@ -243,8 +351,46 @@ fn run_session(
             | ProcessTermination::ThreadExited { status: 0 }
             | ProcessTermination::LastThreadExited { status: 0 },
         ) => Ok(()),
-        _ => Err("root shell failed".into()),
+        _ => Err(process_failure(&shell, "root shell failed").into()),
     }
+}
+
+fn terminal_failure(
+    process: &OwnedHandle<ProcessObject>,
+    retirement: &hyper_os::task::ProcessRetirement,
+    context: &str,
+) -> String {
+    let retained = hyper_os::time::deadline_after(std::time::Duration::from_secs(2))
+        .and_then(|deadline| retirement.wait_ready(deadline.as_raw()));
+    let detail = match retained {
+        Ok(retained) => format!(
+            "{}; fault={} pc=0x{:x} address=0x{:x} retained={} bytes",
+            process_failure(process, context),
+            retained.fault_class,
+            retained.fault_pc,
+            retained.fault_address,
+            retained.retained_bytes,
+        ),
+        Err(error) => format!(
+            "{}; postmortem unavailable: {error:?}",
+            process_failure(process, context)
+        ),
+    };
+    // Observation is complete before permitting address-space reclamation.
+    // Endpoints have already closed; this does not prolong the failed session.
+    match retirement.release() {
+        Ok(()) => detail,
+        Err(error) => format!("{detail}; retirement release failed: {error:?}"),
+    }
+}
+
+fn process_failure(process: &OwnedHandle<ProcessObject>, context: &str) -> String {
+    let koid = process.basic_info().map(|info| info.koid.get());
+    let reason = process
+        .as_process_supervisor()
+        .info()
+        .map(|info| info.terminal);
+    format!("{context}; process={koid:?}; reason={reason:?}")
 }
 
 fn stop_groups(groups: [&OwnedHandle<TaskGroupObject>; 2]) -> hyper_os::Result<()> {

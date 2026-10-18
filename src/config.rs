@@ -12,6 +12,9 @@ pub(crate) struct Config {
     pub(crate) terminal: String,
     pub(crate) shell: String,
     pub(crate) restart_limit: u32,
+    /// Let disconnected applications finish or save before stopping the old
+    /// session. This never reconnects their terminal to the replacement epoch.
+    pub(crate) failure_grace_ms: u64,
 }
 
 impl Default for Config {
@@ -20,6 +23,7 @@ impl Default for Config {
             terminal: "svc/terminal-service".into(),
             shell: "bin/sh".into(),
             restart_limit: 3,
+            failure_grace_ms: 2000,
         }
     }
 }
@@ -50,6 +54,9 @@ impl Config {
         }
         if config.restart_limit > 10 {
             return Err("session restart limit exceeds 10 attempts".into());
+        }
+        if config.failure_grace_ms > 10_000 {
+            return Err("session failure grace exceeds 10000 ms".into());
         }
         Ok(config)
     }
