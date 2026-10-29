@@ -1,34 +1,77 @@
 # SPDX-FileCopyrightText: 2026 roolrz
 # SPDX-License-Identifier: Apache-2.0
 
+bin = [
+    { name = "hyper-session-manager", path = "src/main.rs", test = false, bench = false },
+]
+
 [package]
-workspace = "../../app"
 name = "hyper-session-manager"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
-repository.workspace = true
-publish.workspace = true
+version = "0.0.0"
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/HypeR-Proj/session-manager"
+publish = false
 
 [features]
 test-service-failure = []
 
-[[bin]]
-name = "hyper-session-manager"
-path = "src/main.rs"
-test = false
-bench = false
+[dependencies.hyper-os]
+version = "=0.0.0"
 
-[dependencies]
-hyper-os.workspace = true
-hyper-rt.workspace = true
-hyper-service.workspace = true
-hyper-component.workspace = true
-hyper-service-ipc.workspace = true
-hyper-journal.workspace = true
-hyper-terminal = { path = "../../lib/terminal" }
-serde.workspace = true
-serde_json.workspace = true
+[dependencies.hyper-rt]
+version = "=0.0.0"
+features = [
+    "std",
+]
 
-[lints]
-workspace = true
+[dependencies.hyper-service]
+version = "=0.0.0"
+
+[dependencies.hyper-component]
+version = "=0.0.0"
+
+[dependencies.hyper-service-ipc]
+version = "=0.0.0"
+
+[dependencies.hyper-journal]
+version = "=0.0.0"
+
+[dependencies.hyper-terminal]
+version = "=0.0.0"
+
+[dependencies.serde]
+version = "1"
+features = [
+    "derive",
+]
+
+[dependencies.serde_json]
+version = "1"
+
+[lints.clippy]
+doc_markdown = "deny"
+empty_docs = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+undocumented_unsafe_blocks = "deny"
+unimplemented = "deny"
+unreachable = "deny"
+unwrap_used = "deny"
+missing_safety_doc = "deny"
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[lints.rust.unexpected_cfgs]
+level = "warn"
+check-cfg = [
+    "cfg(target_os, values(\"hyper\"))",
+]
+
+[workspace]
+members = [
+    ".",
+]
+resolver = "3"
