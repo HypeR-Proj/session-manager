@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "name": "session-manager",
+  "kind": "service",
+  "origin": {
+    "repository": "https://github.com/roolrz/HypeR",
+    "commit": "8d42d047058a2b58a291803700e86487fb723f7a"
+  },
+  "sources": {
+    "Cargo.toml": "svc/session-manager/Cargo.toml",
+    "component.mk": "svc/session-manager/component.mk",
+    "src/config.rs": "svc/session-manager/src/config.rs",
+    "src/launch.rs": "svc/session-manager/src/launch.rs",
+    "src/main.rs": "svc/session-manager/src/main.rs"
+  },
+  "SPDX-FileCopyrightText": "2026 roolrz",
+  "SPDX-License-Identifier": "Apache-2.0",
+  "mounts": {
+    "": "svc/session-manager"
+  },
+  "packages": [
+    "hyper-session-manager"
+  ],
+  "tests": [
+    [
+      "make",
+      "app-test",
+      "APP_TEST_PACKAGE=hyper-session-manager"
+    ]
+  ]
+}

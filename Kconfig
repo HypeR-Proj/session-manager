@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 roolrz
+# SPDX-License-Identifier: Apache-2.0
+
+config SYSTEM_APP_SESSION_MANAGER
+    bool "session-manager (/svc/session-manager)"
+    default y
+    depends on SYSTEM_APP_TERMINAL_SERVICE && SYSTEM_APP_SH && SYSTEM_APP_COMPONENT_MANAGER && SYSTEM_APP_SVC_JOURNAL
+    help
+        Build and deploy hyper-session-manager at /svc/session-manager.
+
