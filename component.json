@@ -6,18 +6,8 @@
     "repository": "https://github.com/roolrz/HypeR",
     "commit": "8d42d047058a2b58a291803700e86487fb723f7a"
   },
-  "sources": {
-    "Cargo.toml": "svc/session-manager/Cargo.toml",
-    "component.mk": "svc/session-manager/component.mk",
-    "src/config.rs": "svc/session-manager/src/config.rs",
-    "src/launch.rs": "svc/session-manager/src/launch.rs",
-    "src/main.rs": "svc/session-manager/src/main.rs"
-  },
   "SPDX-FileCopyrightText": "2026 roolrz",
   "SPDX-License-Identifier": "Apache-2.0",
-  "mounts": {
-    "": "svc/session-manager"
-  },
   "packages": [
     "hyper-session-manager"
   ],
@@ -27,44 +17,5 @@
       "app-test",
       "APP_TEST_PACKAGE=hyper-session-manager"
     ]
-  ],
-  "cargo_context": {
-    "Cargo.toml": {
-      "workspace": null,
-      "membership": "../../app",
-      "dependency_paths": {
-        "/dependencies/hyper-service": "lib/service",
-        "/dependencies/hyper-component": "lib/component",
-        "/dependencies/hyper-service-ipc": "lib/service-ipc",
-        "/dependencies/hyper-journal": "lib/journal",
-        "/dependencies/hyper-terminal": "lib/terminal"
-      },
-      "inherited_dependencies": {
-        "/dependencies/hyper-os": {
-          "workspace": true
-        },
-        "/dependencies/hyper-rt": {
-          "workspace": true
-        },
-        "/dependencies/hyper-service": {
-          "workspace": true
-        },
-        "/dependencies/hyper-component": {
-          "workspace": true
-        },
-        "/dependencies/hyper-service-ipc": {
-          "workspace": true
-        },
-        "/dependencies/hyper-journal": {
-          "workspace": true
-        },
-        "/dependencies/serde": {
-          "workspace": true
-        },
-        "/dependencies/serde_json": {
-          "workspace": true
-        }
-      }
-    }
-  }
+  ]
 }

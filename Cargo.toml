@@ -1,9 +1,7 @@
 # SPDX-FileCopyrightText: 2026 roolrz
 # SPDX-License-Identifier: Apache-2.0
 
-bin = [
-    { name = "hyper-session-manager", path = "src/main.rs", test = false, bench = false },
-]
+bin = [{name = "hyper-session-manager", path = "src/main.rs", test = false, bench = false}]
 
 [package]
 name = "hyper-session-manager"
@@ -12,42 +10,44 @@ edition = "2024"
 license = "Apache-2.0"
 repository = "https://github.com/HypeR-Proj/session-manager"
 publish = false
+workspace = "../../app"
 
 [features]
 test-service-failure = []
 
+[dependencies]
+
 [dependencies.hyper-os]
-version = "=0.0.0"
+workspace = true
 
 [dependencies.hyper-rt]
-version = "=0.0.0"
-features = [
-    "std",
-]
+workspace = true
+features = ["std"]
 
 [dependencies.hyper-service]
-version = "=0.0.0"
+workspace = true
 
 [dependencies.hyper-component]
-version = "=0.0.0"
+workspace = true
 
 [dependencies.hyper-service-ipc]
-version = "=0.0.0"
+workspace = true
 
 [dependencies.hyper-journal]
-version = "=0.0.0"
+workspace = true
 
 [dependencies.hyper-terminal]
 version = "=0.0.0"
+path = "../../lib/terminal"
 
 [dependencies.serde]
-version = "1"
-features = [
-    "derive",
-]
+workspace = true
+features = ["derive"]
 
 [dependencies.serde_json]
-version = "1"
+workspace = true
+
+[lints]
 
 [lints.clippy]
 doc_markdown = "deny"
@@ -66,12 +66,4 @@ unsafe_op_in_unsafe_fn = "deny"
 
 [lints.rust.unexpected_cfgs]
 level = "warn"
-check-cfg = [
-    "cfg(target_os, values(\"hyper\"))",
-]
-
-[workspace]
-members = [
-    ".",
-]
-resolver = "3"
+check-cfg = ["cfg(target_os, values(\"hyper\"))"]

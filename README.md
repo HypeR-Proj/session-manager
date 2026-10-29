@@ -13,8 +13,8 @@ workspace setup and the installed SDK build boundary.
 Use the [HypeR workspace](https://github.com/HypeR-Proj/HypeR) to resolve dependencies:
 
 ```sh
-./HypeR/hyper test session-manager
+python3 project.py test session-manager
 ```
 
-Build paths in detailed documentation refer to the generated `out/system` directory.
+Paths in the documentation are relative to the repo-managed workspace root.
 Edit this repository and prepare the workspace again before building.
