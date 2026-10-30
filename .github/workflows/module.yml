@@ -13,6 +13,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   module:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: module
     runs-on: ubuntu-24.04
     timeout-minutes: 60
