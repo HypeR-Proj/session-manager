@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: 2026 roolrz
+# SPDX-License-Identifier: Apache-2.0
+
+name: Topic button
+on:
+  check_run:
+    types: [requested_action, rerequested]
+permissions: {}
+jobs:
+  request:
+    if: github.event.check_run.app.id == 5526627 && github.event.check_run.name == 'topic'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Record the authenticated GitHub event
+        run: |
+          mkdir request
+          cp "$GITHUB_EVENT_PATH" request/event.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: topic-request
+          path: request/event.json
+          retention-days: 30
