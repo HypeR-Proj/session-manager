@@ -36,7 +36,6 @@ path = "../../lib/service-ipc"
 path = "../../lib/journal"
 
 [dependencies.hyper-terminal]
-version = "=0.1.0"
 path = "../../lib/terminal"
 
 [dependencies.serde]
