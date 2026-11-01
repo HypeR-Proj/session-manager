@@ -7,3 +7,6 @@ __pycache__/
 *.pyc
 .config
 .config.old
+
+!/Cargo.lock
+!/tests/link/Cargo.lock
