@@ -18,3 +18,7 @@ python3 project.py test session-manager
 
 Paths in the documentation are relative to the repo-managed workspace root.
 Edit this repository and prepare the workspace again before building.
+
+Journal delegation completes the routed endpoint handoff within the original
+connection deadline. The shell receives a durable shared query endpoint, so
+idle shells retain no per-session query worker in journald.

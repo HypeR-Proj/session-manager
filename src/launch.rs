@@ -153,11 +153,13 @@ pub(super) fn shell(
     );
     let loader = process::open_loader(environment, process::LoaderKind::Dynamic)?;
     let libraries = process::open_library_directory(environment)?;
+    let journal_until = hyper_service_ipc::deadline()?;
     let journal = hyper_component::connection::connect(
         startup.borrow(hyper_component::CONNECTOR)?,
         "journal",
-        hyper_service_ipc::deadline()?,
+        journal_until,
     )?;
+    let journal = hyper_journal::open_query(journal, journal_until)?;
     process::ShellDelegation {
         environment: environment.as_handle_ref(),
         loader: loader.as_handle_ref(),
