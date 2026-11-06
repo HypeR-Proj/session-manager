@@ -125,7 +125,7 @@ pub(super) fn shell(
     config: &Config,
     group: &OwnedHandle<TaskGroupObject>,
     client: PreparedClient,
-) -> hyper_os::Result<OwnedHandle<ProcessObject>> {
+) -> Result<OwnedHandle<ProcessObject>, Box<dyn std::error::Error>> {
     let builder = builder(startup, environment, group, &config.shell, "shell")?;
     macro_rules! delegate {
         ($purpose:expr, $contract:expr) => {
@@ -177,7 +177,7 @@ pub(super) fn shell(
         virtual_machines: startup.borrow(hyper_service::vm::MANAGER_CONNECTION).ok(),
     }
     .add_to(&builder)?;
-    finish_interactive(builder, client)
+    Ok(finish_interactive(builder, client)?)
 }
 
 fn finish_interactive(
