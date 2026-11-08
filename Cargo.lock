@@ -25,6 +25,7 @@ dependencies = [
 name = "hyper-component-config"
 version = "0.1.0"
 dependencies = [
+ "hyper-abi",
  "serde",
  "serde_json",
 ]
