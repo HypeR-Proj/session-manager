@@ -177,6 +177,13 @@ pub(super) fn shell(
         virtual_machines: startup.borrow(hyper_service::vm::MANAGER_CONNECTION).ok(),
     }
     .add_to(&builder)?;
+    if let Ok(random) = startup.borrow(hyper_service::random::CLIENT) {
+        builder.add_handle_duplicate(
+            random,
+            hyper_service::random::CLIENT.as_raw(),
+            RightsOffer::Exact(hyper_service::random::DELEGATED_CLIENT_RIGHTS),
+        )?;
+    }
     Ok(finish_interactive(builder, client)?)
 }
 
